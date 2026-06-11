@@ -8,6 +8,7 @@ import authRoutes from "./routes/auth.routes.js";
 import projectRoutes from "./routes/project.routes.js";
 import taskRoutes from "./routes/task.routes.js";
 import eventRoutes from "./routes/event.routes.js";
+import User from "./models/User.js";
 dotenv.config();
 const PORT = process.env.PORT || 5000;
 const app = express();
@@ -43,14 +44,34 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/events", eventRoutes);
 
-app.get("/api/protected", protect, (req, res) => {
-  res.json({
-    message: "You accessed protected data 🔐",
-    user: req.user,
-  });
-});
-app.get("/", (req, res) => {
-  res.send("hello");
+app.get("/api/users", protect, async (req, res) => {
+  try {
+    const { search } = req.query;
+    const currentUserId = req.user.id;
+
+    //  If search is empty, return an empty array immediately
+    if (!search || search.trim() === "") {
+      return res.status(200).json([]);
+    }
+
+    const users = await User.find({
+      $and: [
+        { _id: { $ne: currentUserId } },
+        {
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { email: { $regex: search, $options: "i" } },
+          ],
+        },
+      ],
+    }).select("id name email avatar");
+
+    return res.status(200).json(users);
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
+  }
 });
 
 app.listen(PORT, () => {
