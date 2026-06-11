@@ -26,19 +26,11 @@ const TaskSchema = new mongoose.Schema(
       type: String, // "YYYY-MM-DD"
       default: "",
     },
-    // Converted from assigneeEmails into real user object references
-    members: [
+
+    assignees: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        index: true,
-      },
-    ],
-
-    assigneeEmails: [
-      {
-        type: String,
-        trim: true,
       },
     ],
     status: {
