@@ -1,31 +1,36 @@
 import Project from "../models/Project.js";
 import Task from "../models/Task.js";
+
 export const getProjects = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    //we extract all the projectids  for whose tasks include user as a member/assigne
-    const assignedProjectIds = await Task.find({ members: userId }).distinct(
+    // 1. Extract all project IDs where this user is present in the assignees array
+    const assignedProjectIds = await Task.find({ assignees: userId }).distinct(
       "project",
     );
 
-    //extract unique projects where user is owner or assigne
+    // 2. Fetch unique projects where the user is either the owner or an assignee
     const rawProjects = await Project.find({
       $or: [{ owner: userId }, { _id: { $in: assignedProjectIds } }],
     }).lean(); // Use lean() for maximum read performance
 
-    //  Structure the output safely for the React frontend
+    // 3. Structure the output cleanly for your React frontend
     const structuredProjects = rawProjects.map(
-      ({ _id, __v, owner, ...rest }) => ({
-        id: _id.toString(),
-        owner: owner.toString(),
-        isOwner: owner.toString() === userId.toString(), // Injected flag to manage frontend UI permissions easily
-        ...rest,
-      }),
+      ({ _id, __v, owner, ...rest }) => {
+        const ownerIdString = owner ? owner.toString() : "";
+        return {
+          id: _id.toString(),
+          owner: ownerIdString,
+          isOwner: ownerIdString === userId.toString(), // Easy UI permission checking on frontend
+          ...rest,
+        };
+      },
     );
 
     return res.status(200).json(structuredProjects);
   } catch (error) {
+    console.error("Error fetching combined user projects:", error);
     return res
       .status(500)
       .json({ error: "Failed to fetch combined user projects." });
@@ -90,7 +95,7 @@ export const updateProject = async (req, res) => {
     const { _id, __v, owner, ...rest } = updatedProject.toObject();
     return res.status(200).json({
       id: _id.toString(),
-      owner: owner.toString(),
+      owner: owner ? owner.toString() : "",
       ...rest,
     });
   } catch (error) {
@@ -102,21 +107,21 @@ export const deleteProject = async (req, res) => {
   try {
     const { id } = req.params;
 
-    //  Find the target project
+    // Find the target project
     const project = await Project.findById(id);
 
     if (!project) {
       return res.status(404).json({ error: "Project target not found." });
     }
 
-    //  Security Guard: Only the core owner can delete a whole project
+    // Security Guard: Only the core owner can delete a whole project
     if (project.owner.toString() !== req.user.id.toString()) {
       return res
         .status(403)
         .json({ error: "Not authorized to delete this project." });
     }
 
-    //  DATABASE CLEANUP (Cascade Delete)
+    // DATABASE CLEANUP (Cascade Delete)
     // Deletes all tasks referencing this project ID across all users/assignees
     await Task.deleteMany({ project: id });
 
@@ -124,9 +129,10 @@ export const deleteProject = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Project  successfully deleted.",
+      message: "Project successfully deleted.",
     });
   } catch (error) {
+    console.error("Project deletion workflow failed:", error);
     return res.status(500).json({ error: "Project deletion workflow failed." });
   }
 };

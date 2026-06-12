@@ -8,14 +8,18 @@ import authRoutes from "./routes/auth.routes.js";
 import projectRoutes from "./routes/project.routes.js";
 import taskRoutes from "./routes/task.routes.js";
 import eventRoutes from "./routes/event.routes.js";
+import meetingRoutes from "./routes/meeting.routes.js";
+import chatRoutes from "./routes/chat.routes.js";
 import User from "./models/User.js";
+import { createServer } from "http";
+import { Server } from "socket.io";
+import { initChatSocket } from "./sockets/chatSocket.js";
 dotenv.config();
 const PORT = process.env.PORT || 5000;
 const app = express();
 
 const allowedOrigins = [
   "http://localhost:5173",
-  "http://localhost:3000",
   "https://your-frontend-deployed-app.com", // change later
 ];
 
@@ -36,13 +40,24 @@ app.use(
 );
 app.use(cookieParser());
 app.use(express.json());
+const httpServer = createServer(app);
 
+const io = new Server(httpServer, {
+  cors: {
+    origin: process.env.FRONTEND_URL,
+    methods: ["GET", "POST"],
+  },
+});
+
+initChatSocket(io);
 connectDB();
 
 app.use("/api/auth", authRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/events", eventRoutes);
+app.use("/api/meetings", meetingRoutes);
+app.use("/api/chat", chatRoutes);
 
 app.get("/api/users", protect, async (req, res) => {
   try {
@@ -74,6 +89,6 @@ app.get("/api/users", protect, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+httpServer.listen(PORT, () => {
+  console.log(`Server executing securely on port ${PORT}`);
 });

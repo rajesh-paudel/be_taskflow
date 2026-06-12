@@ -81,7 +81,7 @@ export const getTasks = async (req, res) => {
         owner: owner.toString(),
 
         assignees: (assignees || []).map((user) => ({
-          id: user._id.toString(),
+          _id: user._id.toString(),
           name: user.name,
           email: user.email,
           avatar: user.avatar || "",
@@ -114,7 +114,8 @@ export const updateTask = async (req, res) => {
     const isTaskOwner = task.owner.toString() === currentUserId;
     const isProjectOwner =
       project && project.owner.toString() === currentUserId;
-    const isAssignee = task.assignees
+    const isAssignee = (task?.assignees || [])
+      .filter((a) => a !== null && a !== undefined)
       .map((a) => a.toString())
       .includes(currentUserId);
 
